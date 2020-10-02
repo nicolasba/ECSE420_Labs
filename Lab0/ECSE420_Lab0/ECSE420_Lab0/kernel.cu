@@ -1,10 +1,10 @@
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 #include "lodepng.h"
+#include "gputimer.h"
 #include <stdio.h>
 #include <stdlib.h>
-
-#define NUMBER_THREADS 256
+#include <string>
 
 
 __device__ unsigned char max(unsigned char arr[], int size)
@@ -39,7 +39,7 @@ __global__ void poolKernel(unsigned char* d_input_img, unsigned char* d_output_i
 			d_input_img[4 * in_i + 2 + out_width * 2 * 4], d_input_img[4 * in_i + 6 + out_width * 2 * 4] };
 		unsigned char valA[4] = { d_input_img[4 * in_i + 3] , d_input_img[4 * in_i + 7] ,
 			d_input_img[4 * in_i + 3 + out_width * 2 * 4], d_input_img[4 * in_i + 7 + out_width * 2 * 4] };
-		 
+
 		// Assign max values among the 4 squares to the output
 		d_output_img[4 * out_i] = max(valR, 4);
 		d_output_img[4 * out_i + 1] = max(valG, 4);
@@ -56,9 +56,15 @@ int main(int argc, char* argv[])
 	unsigned width, height;
 	int input_img_size, output_img_size;
 
-	// Decode png image
+	// Number of threads to test and allocate mem to store elapsed times and timer
+	//int test_number_threads[] = { 1, 2, 4, 8, 16, 32, 64, 128, 256 };
+	GpuTimer timer{};
+
 	char* input_filename = argv[1];
 	char* output_filename = argv[2];
+	int number_threads = atoi(argv[3]);
+	
+	// Decode png image
 	error = lodepng_decode32_file(&host_input_img, &width, &height, input_filename);
 	input_img_size = width * height * 4 * sizeof(unsigned char);
 	output_img_size = width / 2 * height / 2 * 4 * sizeof(unsigned char);
@@ -71,12 +77,21 @@ int main(int argc, char* argv[])
 	cudaMalloc((void**)&device_input_img, input_img_size);
 	cudaMalloc((void**)&device_output_img, output_img_size);
 
+	//for (int i = 0; i < 9; i++)
+//{
 	// Copy data from host to device
 	cudaMemcpy(device_input_img, host_input_img, input_img_size, cudaMemcpyHostToDevice);
+	timer.Start();
 
 	// Launch kernel
-	poolKernel << <1, NUMBER_THREADS >> > (device_input_img, device_output_img, width * height / (4 * NUMBER_THREADS),
+	printf("There are %d threads running.\n", number_threads);
+	poolKernel << <1, number_threads>> > (device_input_img, device_output_img, width * height / (4 * number_threads),
 		width / 2, height / 2);
+	cudaDeviceSynchronize();
+
+	timer.Stop();
+	printf("Elapsed time: %f milliseconds\n", number_threads, timer.Elapsed());
+	//}
 
 	// Copy output data from device to host
 	cudaMemcpy(host_output_img, device_output_img, output_img_size, cudaMemcpyDeviceToHost);
