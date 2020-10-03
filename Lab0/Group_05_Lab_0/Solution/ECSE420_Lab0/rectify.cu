@@ -87,7 +87,8 @@ int main(int argc, char* argv[])
 		{
 			double time_used = 0;
 
-			//printf("There are %d threads running...\n", test_number_threads[i]);
+			printf("Running rectify on %s.\n", input_filename);
+			printf("There are %d threads running...\n", test_number_threads[i]);
 
 			gTim.Start();
 			rectify << <1, test_number_threads[i] >> > (c_image, c_new_image, input_img_size, test_number_threads[i]);
@@ -96,8 +97,8 @@ int main(int argc, char* argv[])
 
 			time_used = gTim.Elapsed();
 
-			//printf("Elapsed time: %f \n", time_used);
-			printf("%d, %f \n", test_number_threads[i], time_used);
+			printf("Elapsed time: %f \n", time_used);
+			//printf("%d, %f \n", test_number_threads[i], time_used);
 		}
 	}
 	else { //1 iteration normally
@@ -112,19 +113,20 @@ int main(int argc, char* argv[])
 
 		printf("Elapsed time: %f \n", gTim.Elapsed());
 
-		unsigned char* device_output_img = (unsigned char*)malloc(input_img_size);
-		cudaMemcpy(device_output_img, c_new_image, input_img_size, cudaMemcpyDeviceToHost);
-		cudaFree(c_image);
-		cudaFree(c_new_image);
-
-		lodepng_encode32_file(output_filename, device_output_img, width, height);
-
-		free(device_output_img);
 	}
 
+	unsigned char* device_output_img = (unsigned char*)malloc(input_img_size);
+	cudaMemcpy(device_output_img, c_new_image, input_img_size, cudaMemcpyDeviceToHost);
+	cudaFree(c_image);
+	cudaFree(c_new_image);
+
+	lodepng_encode32_file(output_filename, device_output_img, width, height);
+
+	free(device_output_img);
+
 	//// get mean squared error between image1 and image2
-	//char* input_filename_1 = "Test_1_rectified.png";
-	//char* input_filename_2 = "Test_1_rectify.png";
+	//char* input_filename_1 = "Test_1_pooled.png";
+	//char* input_filename_2 = "pooled1.png";
 
 	//float MSE = get_MSE(input_filename_1, input_filename_2);
 
@@ -134,6 +136,5 @@ int main(int argc, char* argv[])
 	//else {
 	//	printf("Images are NOT equal (MSE = %f, MAX_MSE = %f)\n", MSE, MAX_MSE);
 	//}
-
 	//return 0;
 }
