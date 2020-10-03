@@ -106,6 +106,7 @@ int main(int argc, char* argv[])
 		timer.Start();
 
 		// Launch kernel
+		printf("Running pooling on %s.\n", input_filename);
 		printf("There are %d threads running.\n", number_threads);
 		poolKernel << <1, number_threads >> > (device_input_img, device_output_img, width * height / (4 * number_threads),
 			width / 2, height / 2);

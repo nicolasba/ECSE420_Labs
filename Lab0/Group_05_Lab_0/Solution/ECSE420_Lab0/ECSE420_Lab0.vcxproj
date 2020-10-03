@@ -78,7 +78,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <CudaCompile Include="lodepng.cu" />
-    <CudaCompile Include="pool.cu" />
+    <CudaCompile Include="rectify.cu" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="gputimer.h" />

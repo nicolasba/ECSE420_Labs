@@ -102,6 +102,7 @@ int main(int argc, char* argv[])
 	}
 	else { //1 iteration normally
 
+		printf("Running rectify on %s.\n", input_filename);
 		printf("There are %d threads running...\n", threadNum);
 
 		gTim.Start();
