@@ -142,7 +142,7 @@ int main(int argc, char* argv[])
 	fclose(outFile);
 	fclose(file);
 	printf("Sequential Logic Complete Time Taken: %d (s) %d (ms)\n", totalTime / 1000, totalTime % 1000); //time in seconds
-	//compareFiles("out_seq_10000.txt", "sol_10000.txt");
+	//compareFiles("out_seq_1000000.txt", "sol_1000000.txt");
 	return 0;
 }
 

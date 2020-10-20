@@ -72,7 +72,6 @@ __device__ char computeGate(char values[])
 	char val2 = values[1];
 	char logic = values[2];
 
-
 	if (logic == AND) {
 		res = val1 & val2;
 	}
@@ -123,10 +122,9 @@ int main(int argc, char* argv[])
 
 	// Host/Device variables
 	size_t input_size, output_size;
-	char* host_gates_in, * host_gates_out;
-	char* device_gates_in, * devices_gates_out;
+	char* gates_in, * gates_out;
 	size_t number_blocks;
-	float data_copy_time, sim_time, total_copy_time;
+	float sim_time;
 	GpuTimer timer{};
 
 	//Files
@@ -140,18 +138,15 @@ int main(int argc, char* argv[])
 	// We need #blocks = #lines / #threads per block,  in order to have as many threads as logic gates
 	number_blocks = (fileLines + THREADS_PER_BLOCK - 1) / THREADS_PER_BLOCK;
 
-	// Allocate host memory for input and output values
-	host_gates_in = (char*)malloc(input_size);
-	host_gates_out = (char*)malloc(output_size);
-
 	// Allocate device memory for input and output values
-	cudaMalloc((void**)&device_gates_in, input_size);
-	cudaMalloc((void**)&devices_gates_out, output_size);
+	cudaMallocManaged((void**)&gates_in, input_size);
+	cudaMallocManaged((void**)&gates_out, output_size);
 
 	// Store values from input text file in host memory
 	size_t i = 0;
 	char line[7];
 	while (fgets(line, sizeof(line), file)) {
+		//printf("%s\n", line);
 		char* copy = strdup(line);
 		char ops[3] = { 0,0,0 };
 		char* token = strtok(copy, ",");
@@ -161,29 +156,19 @@ int main(int argc, char* argv[])
 		token = strtok(NULL, ",");
 		ops[2] = (char)atoi(token);
 
-		memcpy(host_gates_in + i * 3 * sizeof(char), ops, 3 * sizeof(char));
+		memcpy(gates_in + i * 3 * sizeof(char), ops, 3 * sizeof(char));
 		i++;
 	}
 
-	printf("Running logic gate simulation in parallel (explicit memory allocation) on \"%s\".\n", input_filename);
+	printf("Running logic gate simulation in parallel (unified memory allocation) on \"%s\".\n", input_filename);
 
-	//Copy input data from host to device
-	timer.Start();
-	cudaMemcpy(device_gates_in, host_gates_in, input_size, cudaMemcpyHostToDevice);
-	cudaDeviceSynchronize();
-	timer.Stop();
-	total_copy_time = data_copy_time = timer.Elapsed();
-	printf("Copying input data from host mem to device mem took %f ms (or %f s).\n", data_copy_time,
-		data_copy_time / 1000);
-
-
-	sim_time = 0;
-	/*for (i = 0; i < 10; i++)
-	{*/
 	// Launch kernel
 	printf("There are %d threads running.\n", fileLines);
+	sim_time = 0;
+	//for (i = 0; i < 10; i++)
+	//{
 	timer.Start();
-	gateKernel << <number_blocks, THREADS_PER_BLOCK >> > (device_gates_in, devices_gates_out, fileLines);
+	gateKernel << <number_blocks, THREADS_PER_BLOCK >> > (gates_in, gates_out, fileLines);
 	cudaDeviceSynchronize();
 	timer.Stop();
 	sim_time += timer.Elapsed();
@@ -191,34 +176,18 @@ int main(int argc, char* argv[])
 	//printf("Execution time: %f ms (or %f s).\n", sim_time / 10, sim_time / 10 / 1000);
 	printf("Execution time: %f ms (or %f s).\n", sim_time, sim_time / 1000);
 
-
-	// Copy output data from device to host
-	timer.Start();
-	cudaMemcpy(host_gates_out, devices_gates_out, output_size, cudaMemcpyDeviceToHost);
-	cudaDeviceSynchronize();
-	timer.Stop();
-	data_copy_time = timer.Elapsed();
-	total_copy_time += data_copy_time;
-	printf("Copying output data from device mem to host mem took %f ms (or %f s).\n", data_copy_time,
-		data_copy_time / 1000);
-
-	printf("Total data migration time: %f ms (or %f s), execution time: %f ms (or %f s).\n", total_copy_time, total_copy_time / 1000,
-		sim_time, sim_time / 1000);
-
 	// Output to file
 	for (i = 0; i < fileLines; i++)
 	{
-		fprintf(outFile, "%c\n", host_gates_out[i]);
+		fprintf(outFile, "%c\n", gates_out[i]);
 	}
 	printf("The output has been saved to \"%s\".\n", output_filename);
 
 	// Cleanup
-	free(host_gates_in); free(host_gates_out);
-	cudaFree(device_gates_in); cudaFree(devices_gates_out);
+	cudaFree(gates_in); cudaFree(gates_out);
 	fclose(outFile); fclose(file);
 
-	//compareFiles("out_exp_1000000.txt", "sol_1000000.txt");
+	//compareFiles("out_uni_1000000.txt", "sol_1000000.txt");
 	printf("\n");
 	return 0;
 }
-
