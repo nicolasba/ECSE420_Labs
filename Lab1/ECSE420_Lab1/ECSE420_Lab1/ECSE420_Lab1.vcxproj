@@ -11,8 +11,8 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{D8556E5A-6495-4AAB-BC49-92E13327F6BF}</ProjectGuid>
-    <RootNamespace>ECSE420_LAB1</RootNamespace>
+    <ProjectGuid>{1242D1C5-6488-4877-88AE-1117D4C40C0B}</ProjectGuid>
+    <RootNamespace>ECSE420_Lab1</RootNamespace>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
@@ -30,7 +30,7 @@
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
-    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 11.1.props" />
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 11.0.props" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
@@ -77,22 +77,13 @@
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <CudaCompile Include="kernel.cu" />
+    <ClInclude Include="gputimer.h" />
   </ItemGroup>
   <ItemGroup>
-    <Text Include="input_10000.txt" />
-    <Text Include="input_100000.txt" />
-    <Text Include="input_1000000.txt" />
-    <Text Include="out_seq_10000.txt" />
-    <Text Include="sol_10000.txt" />
-    <Text Include="sol_100000.txt" />
-    <Text Include="sol_1000000.txt" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="compareResults.c" />
+    <CudaCompile Include="parallel_explicit.cu" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
-    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 11.1.targets" />
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 11.0.targets" />
   </ImportGroup>
 </Project>

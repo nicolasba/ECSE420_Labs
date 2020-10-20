@@ -47,3 +47,13 @@ FILE* fp2 = fopen(file_name2, "r");
   
     printf("Total Errors : %d\t", error); 
 } 
+
+int main(int argc, char *argv[]){
+
+    if( argc < 3) {
+      printf("Require two files\n");
+      exit(1);
+      
+   }
+compareFiles(argv[1], argv[2]);
+}

@@ -100,7 +100,7 @@ char computeOutput(int values[]) {
 int main(int argc, char* argv[])
 {
 	char* input_filename = argv[1];
-	int fileLines = atoi(argv[2]);
+	size_t fileLines = atoi(argv[2]);
 	char* output_filename = argv[3];
 
 	FILE* file = fopen(input_filename, "r"); //read
@@ -109,8 +109,13 @@ int main(int argc, char* argv[])
 	char answer = NULL;
 	char line[7];
 
+	// Store integers (3 integers per gate/line) to later copy to device mem 
+	int* gates_in = (int*)malloc(3 * fileLines * sizeof(int));	
+	int* gates_out = (int*)malloc(fileLines * sizeof(int));
+
 	clock_t start = clock();
 
+	int i = 0;
 
 	while (fgets(line, sizeof(line), file)) {
 		//printf("%s\n", line);
@@ -128,6 +133,7 @@ int main(int argc, char* argv[])
 		answer = computeOutput(ops);
 		//printf("%c\n", answer);
 		fprintf(outFile, "%c\n", answer);
+		i++;
 	}
 
 	clock_t stop = clock();
