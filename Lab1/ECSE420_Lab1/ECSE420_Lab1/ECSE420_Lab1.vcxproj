@@ -80,7 +80,7 @@
     <ClInclude Include="gputimer.h" />
   </ItemGroup>
   <ItemGroup>
-    <CudaCompile Include="sequential.cu" />
+    <CudaCompile Include="parallel_unified.cu" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
