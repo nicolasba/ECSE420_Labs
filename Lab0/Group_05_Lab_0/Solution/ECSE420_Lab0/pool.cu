@@ -53,6 +53,7 @@ __global__ void poolKernel(unsigned char* d_input_img, unsigned char* d_output_i
 
 int main(int argc, char* argv[])
 {
+	//Image variables
 	unsigned error;
 	unsigned char* host_input_img, * host_output_img;
 	unsigned char* device_input_img, * device_output_img;

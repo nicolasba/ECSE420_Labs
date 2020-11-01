@@ -77,10 +77,13 @@
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <CudaCompile Include="parallel_explicit.cu" />
+    <CudaCompile Include="convolution.cu" />
+    <CudaCompile Include="lodepng.cu" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="gputimer.h" />
+    <ClInclude Include="lodepng.h" />
+    <ClInclude Include="wm.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
