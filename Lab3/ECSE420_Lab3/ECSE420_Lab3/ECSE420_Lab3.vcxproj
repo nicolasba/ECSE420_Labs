@@ -55,6 +55,7 @@
     </Link>
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>
+      <CudaRuntime>Static</CudaRuntime>
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -77,9 +78,7 @@
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <CudaCompile Include="sequential.cu" />
-  </ItemGroup>
-  <ItemGroup>
+    <ClCompile Include="compareNextLevelNodes - Copy.c" />
     <ClCompile Include="read_input.cu" />
     <ClCompile Include="write_output.cu" />
   </ItemGroup>
