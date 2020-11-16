@@ -8,6 +8,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#define TEST 0
+
 #define AND     0
 #define OR      1
 #define NAND    2
@@ -80,8 +82,9 @@ __global__ void shared_queuing_kernel(GateGraph* gate_graph, int num_threads)
 	{
 		__shared__ int block_queue[BLOCK_QUEUE_CAPACITY];
 		__shared__ int sh_block_queue_idx;
-		int node = gate_graph->currLevelNodes_h[idx];
 		sh_block_queue_idx = 0;
+
+		int node = gate_graph->currLevelNodes_h[idx];
 
 		// Wait until all threads in block have set block_queue_idx to 0
 		__syncthreads();
@@ -92,7 +95,7 @@ __global__ void shared_queuing_kernel(GateGraph* gate_graph, int num_threads)
 			int neigh = gate_graph->nodeNeighbors_h[neigh_ptr];
 
 			// Operate on neighbour if it has not been visited
-			if (!atomicCAS(&(gate_graph->nodeVisited_h[neigh]), 0, 1))
+			if (!atomicCAS(&(gate_graph->nodeVisited_h[neigh]), 0, 1))					// Compare and swap atomically if node has not been visited
 			{
 				// Update node output
 				int gate[3] = { gate_graph->nodeInput_h[neigh], gate_graph->nodeOutput_h[node],
@@ -100,7 +103,7 @@ __global__ void shared_queuing_kernel(GateGraph* gate_graph, int num_threads)
 				gate_graph->nodeOutput_h[neigh] = computeGate(gate);
 
 				// Add to block queue if queue not full
-				int block_queue_idx = atomicAdd(&(sh_block_queue_idx), 1);				// Increment nextLevelNode index atomically
+				int block_queue_idx = atomicAdd(&(sh_block_queue_idx), 1);				// Increment block queue index atomically
 				if (block_queue_idx < BLOCK_QUEUE_CAPACITY)
 				{
 					block_queue[block_queue_idx] = neigh;
@@ -113,7 +116,6 @@ __global__ void shared_queuing_kernel(GateGraph* gate_graph, int num_threads)
 					gate_graph->nextLevelNodes_h[nextLevelNodeIdx] = neigh;
 				}
 			}
-			//#endif
 		}
 
 		// Wait for all threads in block to write to shared queue
@@ -151,19 +153,22 @@ __global__ void shared_queuing_kernel(GateGraph* gate_graph, int num_threads)
 int main(int argc, char* argv[])
 {
 	// Command line
-	/*char* input1_filename = argv[1];
-	char* input2_filename = argv[2];
-	char* input3_filename = argv[3];
-	char* input4_filename = argv[4];
-	char* nodeOutput_filename = argv[5];
-	char* nextLevelNodes_filename = argv[6];*/
+	int num_blks = atoi(argv[1]);
+	int blk_size = atoi(argv[2]);
+	int shared_queue_size = atoi(argv[3]);
+	char* input1_filename = argv[4];
+	char* input2_filename = argv[5];
+	char* input3_filename = argv[6];
+	char* input4_filename = argv[7];
+	char* nodeOutput_filename = argv[8];
+	char* nextLevelNodes_filename = argv[9];
 
-	char* input1_filename = "input1.raw";
+	/*char* input1_filename = "input1.raw";
 	char* input2_filename = "input2.raw";
 	char* input3_filename = "input3.raw";
 	char* input4_filename = "input4.raw";
 	char* nodeOutput_filename = "nodeOutput_shared.raw";
-	char* nextLevelNodes_filename = "nextLvlOutput_shared.raw";
+	char* nextLevelNodes_filename = "nextLvlOutput_shared.raw";*/
 
 	// Timer object
 	GpuTimer timer{};
@@ -217,24 +222,36 @@ int main(int argc, char* argv[])
 	// Copy struct from host to device
 	cudaMemcpy(device_gates, temp_device_gates, sizeof(GateGraph), cudaMemcpyHostToDevice);
 
-	int blockSize[] = { 32, 64 };
-	int numBlock[] = { 25, 35 };
+	if (TEST)
+	{
+		int blockSize[] = { 32, 64 };
+		int numBlock[] = { 25, 35 };
 
-	// Invoke kernel on different blk_size, num_blks and blk_queue_capacity configurations
-	for (int i = 0; i < 2; i++)
-		for (int j = 0; j < 2; j++)
-		{
-			// Invoke kernel and compute elapsed time
-			timer.Start();
+		// Invoke kernel on different blk_size, num_blks and blk_queue_capacity configurations
+		for (int i = 0; i < 2; i++)
+			for (int j = 0; j < 2; j++)
+			{
+				timer.Start();
+				// Run 10 times just for time to be more accurate
+				for (int k = 0; k < 10; k++)
+				{
+					// Invoke kernel
+					shared_queuing_kernel << < numBlock[i], blockSize[j] >> > (device_gates, numBlock[i] * blockSize[j]);
+					cudaDeviceSynchronize();
+				}
+				timer.Stop();
+				printf("%d %d %d %f\n", numBlock[i], blockSize[j], BLOCK_QUEUE_CAPACITY, timer.Elapsed() / 10);
+			}
+	}
+	else
+	{
+		printf("Running BFS on the gate graph using shared memory queuing (blkSize=%d, numBlks=%d)\n", blk_size, num_blks);
+		// Invoke kernel
+		shared_queuing_kernel << < num_blks, blk_size >> > (device_gates, num_blks * blk_size);
+		cudaDeviceSynchronize();
+	}
 
-			shared_queuing_kernel << < numBlock[i], blockSize[j] >> > (device_gates, numBlock[i] * blockSize[j]);
-			cudaDeviceSynchronize();
-			
-			timer.Stop();
-			printf("%d %d %d %f\n", numBlock[i], blockSize[j], BLOCK_QUEUE_CAPACITY, timer.Elapsed());
-		}
-
-	// Copy struct from device to device
+	// Copy struct from device to host
 	cudaMemcpy(temp_device_gates, device_gates, sizeof(GateGraph), cudaMemcpyDeviceToHost);
 
 	// Copy nodeOutput and nextLevelNodes from device to host
@@ -242,9 +259,13 @@ int main(int argc, char* argv[])
 	cudaMemcpy(host_gates->nextLevelNodes_h, temp_device_gates->nextLevelNodes_h, temp_device_gates->numNextLevelNodes_h * sizeof(int), cudaMemcpyDeviceToHost);
 	host_gates->numNextLevelNodes_h = temp_device_gates->numNextLevelNodes_h;
 
+	printf("Saving to files\n");
+
 	// Write nodeOutput and nextLevelNodes to files
 	write_output(host_gates->nodeOutput_h, host_gates->numNodes, nodeOutput_filename);
 	write_output(host_gates->nextLevelNodes_h, host_gates->numNextLevelNodes_h, nextLevelNodes_filename);
+
+	printf("Done\n");
 
 	return 0;
 }

@@ -87,7 +87,7 @@
     <ClInclude Include="read_input.h" />
   </ItemGroup>
   <ItemGroup>
-    <CudaCompile Include="sequential.cu" />
+    <CudaCompile Include="shared_queuing.cu" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

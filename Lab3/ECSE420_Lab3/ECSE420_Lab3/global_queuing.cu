@@ -8,6 +8,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#define TEST 0
+
 #define AND     0
 #define OR      1
 #define NAND    2
@@ -83,7 +85,7 @@ __global__ void global_queuing_kernel(GateGraph* gate_graph, int num_threads)
 
 #if __CUDA_ARCH__ >= 200
 			// Operate on neighbour if it has not been visited
-			if (!atomicCAS(&(gate_graph->nodeVisited_h[neigh]), 0, 1))
+			if (!atomicCAS(&(gate_graph->nodeVisited_h[neigh]), 0, 1))						// Compare and swap if node has not been visited atomically
 			{
 				int gate[3] = { gate_graph->nodeInput_h[neigh], gate_graph->nodeOutput_h[node],
 									gate_graph->nodeGate_h[neigh] };
@@ -102,19 +104,19 @@ __global__ void global_queuing_kernel(GateGraph* gate_graph, int num_threads)
 int main(int argc, char* argv[])
 {
 	// Command line
-	/*char* input1_filename = argv[1];
+	char* input1_filename = argv[1];
 	char* input2_filename = argv[2];
 	char* input3_filename = argv[3];
 	char* input4_filename = argv[4];
 	char* nodeOutput_filename = argv[5];
-	char* nextLevelNodes_filename = argv[6];*/
+	char* nextLevelNodes_filename = argv[6];
 
-	char* input1_filename = "input1.raw";
+	/*char* input1_filename = "input1.raw";
 	char* input2_filename = "input2.raw";
 	char* input3_filename = "input3.raw";
 	char* input4_filename = "input4.raw";
 	char* nodeOutput_filename = "nodeOutput_global.raw";
-	char* nextLevelNodes_filename = "nextLvlOutput_global.raw";
+	char* nextLevelNodes_filename = "nextLvlOutput_global.raw";*/
 
 	// Timer object
 	GpuTimer timer{};
@@ -168,24 +170,39 @@ int main(int argc, char* argv[])
 	// Copy struct from host to device
 	cudaMemcpy(device_gates, temp_device_gates, sizeof(GateGraph), cudaMemcpyHostToDevice);
 
-	int blockSize[] = { 32, 64, 128 };
-	int numBlock[] = { 10, 25, 35 };
+	if (TEST)
+	{
+		int blockSize[] = { 32, 64, 128 };
+		int numBlock[] = { 10, 25, 35 };
 
-	// Invoke kernel on different blk_size and num_blks configurations
-	for (int i = 0; i < 3; i++)
-		for (int j = 0; j < 3; j++)
-		{
-			// Invoke kernel and compute elapsed time
-			timer.Start();
+		// Invoke kernel on different blk_size and num_blks configurations
+		for (int i = 0; i < 3; i++)
+			for (int j = 0; j < 3; j++)
+			{
+				timer.Start();
+				// Run 10 times just for time to be more accurate
+				for (int k = 0; k < 10; k++)
+				{
+					// Invoke kernel
+					global_queuing_kernel << <numBlock[i], blockSize[j] >> > (device_gates, numBlock[i] * blockSize[j]);
+					cudaDeviceSynchronize();
+				}
+				timer.Stop();
+				printf("%d %d %f\n", numBlock[i], blockSize[j], timer.Elapsed() / 10);
+			}
+	}
+	else
+	{
+		int numBlock = 35;
+		int blockSize = 128;
 
-			global_queuing_kernel << <numBlock[i], blockSize[j] >> > (device_gates, numBlock[i] * blockSize[j]);
-			cudaDeviceSynchronize();
+		printf("Running BFS on the gate graph using global queuing (blkSize=%d, numBlks=%d)\n", blockSize, numBlock);
+		// Invoke kernel
+		global_queuing_kernel << <numBlock, blockSize >> > (device_gates, numBlock * blockSize);
+		cudaDeviceSynchronize();
+	}
 
-			timer.Stop();
-			printf("%d %d %f\n", numBlock[i], blockSize[j], timer.Elapsed());
-		}
-
-	// Copy struct from device to device
+	// Copy struct from device to host
 	cudaMemcpy(temp_device_gates, device_gates, sizeof(GateGraph), cudaMemcpyDeviceToHost);
 
 	// Copy nodeOutput and nextLevelNodes from device to host
@@ -193,9 +210,13 @@ int main(int argc, char* argv[])
 	cudaMemcpy(host_gates->nextLevelNodes_h, temp_device_gates->nextLevelNodes_h, temp_device_gates->numNextLevelNodes_h * sizeof(int), cudaMemcpyDeviceToHost);
 	host_gates->numNextLevelNodes_h = temp_device_gates->numNextLevelNodes_h;
 
+	printf("Saving to files\n");
+
 	// Write nodeOutput and nextLevelNodes to files
 	write_output(host_gates->nodeOutput_h, host_gates->numNodes, nodeOutput_filename);
 	write_output(host_gates->nextLevelNodes_h, host_gates->numNextLevelNodes_h, nextLevelNodes_filename);
+
+	printf("Done\n");
 
 	return 0;
 }
