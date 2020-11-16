@@ -3,6 +3,7 @@
 #include "device_launch_parameters.h"
 #include "read_input.h"
 #include "write_output.h"
+#include "gputimer.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -115,6 +116,9 @@ int main(int argc, char* argv[])
 	char* nodeOutput_filename = "nodeOutput_global.raw";
 	char* nextLevelNodes_filename = "nextLvlOutput_global.raw";
 
+	// Timer object
+	GpuTimer timer{};
+
 	// Graph structs (hostmem / devicemem)
 	GateGraph* host_gates;
 	GateGraph* temp_device_gates, * device_gates;
@@ -167,11 +171,18 @@ int main(int argc, char* argv[])
 	int blockSize[] = { 32, 64, 128 };
 	int numBlock[] = { 10, 25, 35 };
 
+	// Invoke kernel on different blk_size and num_blks configurations
 	for (int i = 0; i < 3; i++)
 		for (int j = 0; j < 3; j++)
 		{
-			global_queuing_kernel << <numBlock[i], blockSize[j] >> > (device_gates, 1024);
+			// Invoke kernel and compute elapsed time
+			timer.Start();
 
+			global_queuing_kernel << <numBlock[i], blockSize[j] >> > (device_gates, numBlock[i] * blockSize[j]);
+			cudaDeviceSynchronize();
+
+			timer.Stop();
+			printf("%d %d %f\n", numBlock[i], blockSize[j], timer.Elapsed());
 		}
 
 	// Copy struct from device to device

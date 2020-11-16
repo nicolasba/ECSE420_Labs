@@ -6,6 +6,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 
 #define AND     0
 #define OR      1
@@ -93,6 +94,9 @@ int main(int argc, char *argv[])
     nextLevelNodes_h = (int*)malloc(numNodes * sizeof(int));
     numNextLevelNodes_h = 0;
 
+    // Timer
+    clock_t start = clock();
+
     // Iterate through nodes in the current level
     for (int i = 0; i < numCurrLevelNodes; i++)
     {
@@ -114,6 +118,10 @@ int main(int argc, char *argv[])
             }
         }
     }
+
+    clock_t stop = clock();
+    int totalTime = (stop - start) * 1000 / CLOCKS_PER_SEC;
+    printf("Sequential time taken: %d (s) and %d (ms)\n", totalTime / 1000, totalTime % 1000); //time in seconds
 
     write_output(nodeOutput_h, numNodes, nodeOutput_filename);
     write_output(nextLevelNodes_h, numNextLevelNodes_h, nextLevelNodes_filename);

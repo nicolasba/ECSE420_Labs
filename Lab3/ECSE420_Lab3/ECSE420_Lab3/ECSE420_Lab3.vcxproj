@@ -78,13 +78,16 @@
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="compareNodeOutput.c" />
     <ClCompile Include="read_input.cu" />
     <ClCompile Include="write_output.cu" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="gputimer.h" />
     <ClInclude Include="write_output.h" />
     <ClInclude Include="read_input.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <CudaCompile Include="sequential.cu" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

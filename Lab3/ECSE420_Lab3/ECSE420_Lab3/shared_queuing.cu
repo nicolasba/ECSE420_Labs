@@ -3,6 +3,7 @@
 #include "device_launch_parameters.h"
 #include "read_input.h"
 #include "write_output.h"
+#include "gputimer.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,8 +15,8 @@
 #define XOR     4
 #define XNOR    5
 
-#define BLOCK_QUEUE_CAPACITY 32
-//#define BLOCK_QUEUE_CAPACITY 64
+//#define BLOCK_QUEUE_CAPACITY 32
+#define BLOCK_QUEUE_CAPACITY 64
 
 typedef struct GateGraph {
 	// Input vars
@@ -164,6 +165,9 @@ int main(int argc, char* argv[])
 	char* nodeOutput_filename = "nodeOutput_shared.raw";
 	char* nextLevelNodes_filename = "nextLvlOutput_shared.raw";
 
+	// Timer object
+	GpuTimer timer{};
+
 	// Graph structs (hostmem / devicemem)
 	GateGraph* host_gates;
 	GateGraph* temp_device_gates, * device_gates;
@@ -216,12 +220,19 @@ int main(int argc, char* argv[])
 	int blockSize[] = { 32, 64 };
 	int numBlock[] = { 25, 35 };
 
-	/*for (int i = 0; i < 3; i++)
-		for (int j = 0; j < 3; j++)
-		{*/
-	shared_queuing_kernel << < 25, 32 >> > (device_gates, 25 * 32);
+	// Invoke kernel on different blk_size, num_blks and blk_queue_capacity configurations
+	for (int i = 0; i < 2; i++)
+		for (int j = 0; j < 2; j++)
+		{
+			// Invoke kernel and compute elapsed time
+			timer.Start();
 
-	//}
+			shared_queuing_kernel << < numBlock[i], blockSize[j] >> > (device_gates, numBlock[i] * blockSize[j]);
+			cudaDeviceSynchronize();
+			
+			timer.Stop();
+			printf("%d %d %d %f\n", numBlock[i], blockSize[j], BLOCK_QUEUE_CAPACITY, timer.Elapsed());
+		}
 
 	// Copy struct from device to device
 	cudaMemcpy(temp_device_gates, device_gates, sizeof(GateGraph), cudaMemcpyDeviceToHost);
