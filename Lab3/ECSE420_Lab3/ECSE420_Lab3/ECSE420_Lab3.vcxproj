@@ -78,7 +78,7 @@
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="compareNextLevelNodes - Copy.c" />
+    <ClCompile Include="compareNodeOutput.c" />
     <ClCompile Include="read_input.cu" />
     <ClCompile Include="write_output.cu" />
   </ItemGroup>

@@ -78,5 +78,5 @@ int main(int argc, char* argv[]) {
 
 	}
 	compareNextLevelNodeFiles(argv[1], argv[2]);*/
-	compareNextLevelNodeFiles("nextLvlOutput_global.raw", "sol_nextLevelNodes.raw");
+	compareNextLevelNodeFiles("nextLvlOutput_shared.raw", "sol_nextLevelNodes.raw");
 }

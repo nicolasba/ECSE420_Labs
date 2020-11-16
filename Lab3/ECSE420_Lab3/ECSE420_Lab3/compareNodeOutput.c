@@ -55,6 +55,6 @@ int main(int argc, char* argv[]) {
 		exit(1);
 
 	}*/
-	compareFiles("nodeOutput_global.raw", "sol_nodeOutput.raw");
+	compareFiles("nodeOutput_shared.raw", "sol_nodeOutput.raw");
 	//compareFiles(argv[1], argv[2]);
 }

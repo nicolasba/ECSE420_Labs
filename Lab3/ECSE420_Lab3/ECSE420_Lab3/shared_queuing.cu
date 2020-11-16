@@ -14,6 +14,9 @@
 #define XOR     4
 #define XNOR    5
 
+#define BLOCK_QUEUE_CAPACITY 32
+//#define BLOCK_QUEUE_CAPACITY 64
+
 typedef struct GateGraph {
 	// Input vars
 	int numNodePtrs;
@@ -66,36 +69,82 @@ __device__ int computeGate(int values[]) {
 	return compute;
 }
 
-__global__ void global_queuing_kernel(GateGraph* gate_graph, int num_threads)
+__global__ void shared_queuing_kernel(GateGraph* gate_graph, int num_threads)
 {
+#if __CUDA_ARCH__ >= 200
 	int idx = threadIdx.x + blockIdx.x * blockDim.x;
 
 	// Iterate through nodes in the current level
 	while (idx < gate_graph->numCurrLevelNodes)
 	{
+		__shared__ int block_queue[BLOCK_QUEUE_CAPACITY];
+		__shared__ int sh_block_queue_idx;
 		int node = gate_graph->currLevelNodes_h[idx];
+		sh_block_queue_idx = 0;
+
+		// Wait until all threads in block have set block_queue_idx to 0
+		__syncthreads();
 
 		// Iterate through neighbours of the current node
 		for (int neigh_ptr = gate_graph->nodePtrs_h[node]; neigh_ptr < gate_graph->nodePtrs_h[node + 1]; neigh_ptr++)
 		{
 			int neigh = gate_graph->nodeNeighbors_h[neigh_ptr];
 
-#if __CUDA_ARCH__ >= 200
 			// Operate on neighbour if it has not been visited
 			if (!atomicCAS(&(gate_graph->nodeVisited_h[neigh]), 0, 1))
 			{
+				// Update node output
 				int gate[3] = { gate_graph->nodeInput_h[neigh], gate_graph->nodeOutput_h[node],
 									gate_graph->nodeGate_h[neigh] };
-
-				int nextLevelNodeIdx = atomicAdd(&(gate_graph->numNextLevelNodes_h), 1);	// Increment nextLevelNode index atomically
 				gate_graph->nodeOutput_h[neigh] = computeGate(gate);
-				gate_graph->nextLevelNodes_h[nextLevelNodeIdx] = neigh;
+
+				// Add to block queue if queue not full
+				int block_queue_idx = atomicAdd(&(sh_block_queue_idx), 1);				// Increment nextLevelNode index atomically
+				if (block_queue_idx < BLOCK_QUEUE_CAPACITY)
+				{
+					block_queue[block_queue_idx] = neigh;
+				}
+
+				// If block queue is full, add to global queue
+				else
+				{
+					int nextLevelNodeIdx = atomicAdd(&(gate_graph->numNextLevelNodes_h), 1);	// Increment nextLevelNode index atomically
+					gate_graph->nextLevelNodes_h[nextLevelNodeIdx] = neigh;
+				}
 			}
-#endif
+			//#endif
+		}
+
+		// Wait for all threads in block to write to shared queue
+		__syncthreads();
+
+		if (threadIdx.x == 0)
+		{
+			if (sh_block_queue_idx < BLOCK_QUEUE_CAPACITY)
+			{
+				int nextLevelNodeIdx = atomicAdd(&(gate_graph->numNextLevelNodes_h), sh_block_queue_idx);
+				for (int i = 0; i < sh_block_queue_idx; i++)
+				{
+					gate_graph->nextLevelNodes_h[nextLevelNodeIdx + i] = block_queue[i];
+				}
+			}
+			else
+			{
+				int nextLevelNodeIdx = atomicAdd(&(gate_graph->numNextLevelNodes_h), BLOCK_QUEUE_CAPACITY);
+				for (int i = 0; i < BLOCK_QUEUE_CAPACITY; i++)
+				{
+					gate_graph->nextLevelNodes_h[nextLevelNodeIdx + i] = block_queue[i];
+				}
+			}
 		}
 
 		idx += num_threads;
+
+		// Wait for thread 0 to copy content of shared queue to global queue before clearing
+		// queue in next iteration
+		__syncthreads();
 	}
+#endif
 }
 
 int main(int argc, char* argv[])
@@ -112,8 +161,8 @@ int main(int argc, char* argv[])
 	char* input2_filename = "input2.raw";
 	char* input3_filename = "input3.raw";
 	char* input4_filename = "input4.raw";
-	char* nodeOutput_filename = "nodeOutput_global.raw";
-	char* nextLevelNodes_filename = "nextLvlOutput_global.raw";
+	char* nodeOutput_filename = "nodeOutput_shared.raw";
+	char* nextLevelNodes_filename = "nextLvlOutput_shared.raw";
 
 	// Graph structs (hostmem / devicemem)
 	GateGraph* host_gates;
@@ -164,15 +213,15 @@ int main(int argc, char* argv[])
 	// Copy struct from host to device
 	cudaMemcpy(device_gates, temp_device_gates, sizeof(GateGraph), cudaMemcpyHostToDevice);
 
-	int blockSize[] = { 32, 64, 128 };
-	int numBlock[] = { 10, 25, 35 };
+	int blockSize[] = { 32, 64 };
+	int numBlock[] = { 25, 35 };
 
-	for (int i = 0; i < 3; i++)
+	/*for (int i = 0; i < 3; i++)
 		for (int j = 0; j < 3; j++)
-		{
-			global_queuing_kernel << <numBlock[i], blockSize[j] >> > (device_gates, 1024);
+		{*/
+	shared_queuing_kernel << < 25, 32 >> > (device_gates, 25 * 32);
 
-		}
+	//}
 
 	// Copy struct from device to device
 	cudaMemcpy(temp_device_gates, device_gates, sizeof(GateGraph), cudaMemcpyDeviceToHost);
